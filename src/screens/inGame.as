@@ -6,10 +6,14 @@ package screens
 	import objects.GameBackground;
 	import objects.Hero;
 	import objects.Obstacle;
+	import objects.Item;
 	
 	import starling.display.Button;
 	import starling.display.Sprite;
 	import starling.events.Event;
+	import starling.events.Touch;
+	import starling.events.TouchEvent;
+	import starling.utils.deg2rad;
 	
 	public class inGame extends Sprite
 	{
@@ -31,7 +35,12 @@ package screens
 		
 		private var gameArea:Rectangle;
 		
+		private var touch:Touch;
+		private var touchX:Number;
+		private var touchY:Number;
+		
 		private var obstaclesToAnimate:Vector.<Obstacle>;
+		private var itemsToAnimate:Vector.<Item>;
 		
 		public function inGame()
 		{
@@ -87,6 +96,7 @@ package screens
 			obstacleGapCount = 0;
 			
 			obstaclesToAnimate = new Vector.<Obstacle>();
+			itemsToAnimate = new Vector.<Item>();
 			
 			startButton.addEventListener(Event.TRIGGERED, onStartButtonClick)
 		}
@@ -100,7 +110,16 @@ package screens
 		
 		private function launchHero():void
 		{
+			this.addEventListener(TouchEvent.TOUCH, onTouch);
 			this.addEventListener(Event.ENTER_FRAME, onGameTick)
+		}
+		
+		private function onTouch(event:TouchEvent):void
+		{
+			touch = event.getTouch(stage);
+			
+			touchX = touch.globalX;
+			touchY = touch.globalY;
 		}
 		
 		private function onGameTick(event:Event):void
@@ -108,7 +127,7 @@ package screens
 			switch(gameState)
 			{
 				case "idle":
-					//take off
+					
 					if(hero.x < stage.stageWidth * 0.5 * 0.5)
 					{
 						hero.x += ((stage.stageWidth * 0.5 * 0.5 + 10) - hero.x) * 0.05;
@@ -123,6 +142,32 @@ package screens
 					}
 					break
 				case "flying":
+					
+					if (hitObstacle <= 0)
+					{
+						hero.y -= (hero.y - touchY) * 0.1;
+						
+						if( -( hero.y - touchY) < 150 && -(hero.y - touchY) > -150)
+						{
+							hero.rotation = deg2rad(-(hero.y - touchY) * 0.2);
+						}
+						if (hero.y > gameArea.bottom - hero.height * 0.5)
+						{
+							hero.y = gameArea.bottom - hero.height * 0.5;
+							hero.rotation = deg2rad(0);
+						}
+						if(hero.y < gameArea.top + hero.height * 0.5)
+						{
+							hero.y = gameArea.top + hero.height * 0.5;
+							hero.rotation = deg2rad(0);
+						}
+					}
+					else
+					{
+						hitObstacle--;
+						cameraShake();
+					}
+					
 					playerSpeed -= (playerSpeed - MIN_SPEED) * 0.01;
 					bg.speed = playerSpeed * elapsed;
 					
@@ -131,10 +176,63 @@ package screens
 					initObstacle();
 					animateObstacles();
 					
+					createFoodItems()
+					animateItems()
+					
 					trace("scoreDistance");
 					break
 				case "over":
 					break
+			}
+		}
+		
+		private function animateItems():void
+		{
+			var itemToTrack:Item;
+			
+			for(var i:int; i < itemsToAnimate.length; i++)
+			{
+				itemToTrack = itemsToAnimate[i];
+				
+				itemToTrack.x -= playerSpeed * elapsed;
+				
+				if (itemToTrack.bounds.intersects(hero.bounds))
+				{
+					itemsToAnimate.splice(i, 1);
+					this.removeChild(itemToTrack);
+				}
+				
+				if(itemToTrack.x < -50)
+				{
+					itemsToAnimate.splice(i, 1);
+					this.removeChild(itemToTrack);
+				}
+			}
+		}
+		
+		private function createFoodItems():void
+		{
+			if(Math.random() > 0.95)
+			{
+				var itemToTrack:Item = new Item(Math.ceil(Math.random() * 5));
+				itemToTrack.x = stage.stageWidth + 50;
+				itemToTrack.y = int( Math.random() * (gameArea.bottom - gameArea.top)) + gameArea.top;
+				this.addChild(itemToTrack);
+				itemsToAnimate.push(itemToTrack);
+			}
+		}
+		
+		private function cameraShake():void
+		{
+			if (hitObstacle > 0)
+			{
+				this.x = Math.random() * hitObstacle;
+				this.y = Math.random() * hitObstacle;
+			}
+			else if( x != 0 )
+			{
+				this.x = 0;
+				this.y = 0;
 			}
 		}
 		
@@ -145,6 +243,14 @@ package screens
 			for(var i:uint = 0;i<obstaclesToAnimate.length;i++)
 			{
 				obstacleToTrack = obstaclesToAnimate[i];
+				
+				if(obstacleToTrack.alreadyHit == false && obstacleToTrack.bounds.intersects(hero.bounds))
+				{
+					obstacleToTrack.alreadyHit = true;
+					obstacleToTrack.rotation = deg2rad(70);
+					hitObstacle = 30;
+					playerSpeed *= 0.5;
+				}
 				
 				if(obstacleToTrack.distance > 0)
 				{
