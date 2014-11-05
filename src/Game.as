@@ -2,6 +2,7 @@ package
 {
 	import events.NavigationEvent;
 	
+	import screens.About;
 	import screens.Welcome;
 	import screens.inGame;
 	
@@ -13,6 +14,7 @@ package
 	{
 		private var screenWelcome:Welcome;
 		private var screenInGame:inGame;
+		private var screenAbout:About
 		
 		public function Game()
 		{
@@ -32,6 +34,10 @@ package
 			screenWelcome = new Welcome
 			this.addChild(screenWelcome)
 			screenWelcome.initialize()
+				
+			screenAbout = new About
+			screenAbout.disposeTemporarily()
+			this.addChild(screenAbout)
 		}
 		
 		private function onChangeScreen(event:NavigationEvent):void
@@ -43,6 +49,13 @@ package
 					screenInGame.initialize();
 					break;
 				case "about":
+					screenWelcome.disposeTemporarily();
+					screenAbout.initialize();
+					break;
+				case "menu":
+					screenAbout.disposeTemporarily();
+					screenWelcome.initialize();
+					break;
 			}
 			
 		}
