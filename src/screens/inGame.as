@@ -5,14 +5,18 @@ package screens
 	
 	import objects.GameBackground;
 	import objects.Hero;
-	import objects.Obstacle;
 	import objects.Item;
+	import objects.Obstacle;
+	import objects.Particle;
 	
 	import starling.display.Button;
 	import starling.display.Sprite;
 	import starling.events.Event;
 	import starling.events.Touch;
 	import starling.events.TouchEvent;
+	import starling.text.TextField;
+	import starling.utils.HAlign;
+	import starling.utils.VAlign;
 	import starling.utils.deg2rad;
 	
 	public class inGame extends Sprite
@@ -41,6 +45,9 @@ package screens
 		
 		private var obstaclesToAnimate:Vector.<Obstacle>;
 		private var itemsToAnimate:Vector.<Item>;
+		private var eatParticlesToAnimate:Vector.<Particle>;
+		
+		private var scoreText:starling.text.TextField
 		
 		public function inGame()
 		{
@@ -52,6 +59,13 @@ package screens
 		{
 			this.removeEventListener(Event.ADDED_TO_STAGE, onAddedToStage)
 			drawGame();
+			
+			scoreText = new TextField(300, 100, "SCORE: 0", Assets.getFont().name, 24, 0xffffff)
+			scoreText.hAlign = HAlign.LEFT;
+			scoreText.vAlign = VAlign.TOP;
+			scoreText.x = 20;
+			scoreText.y = 20;
+			this.addChild(scoreText)
 		}
 		
 		private function drawGame():void
@@ -97,6 +111,7 @@ package screens
 			
 			obstaclesToAnimate = new Vector.<Obstacle>();
 			itemsToAnimate = new Vector.<Item>();
+			eatParticlesToAnimate = new Vector.<Particle>();
 			
 			startButton.addEventListener(Event.TRIGGERED, onStartButtonClick)
 		}
@@ -173,11 +188,14 @@ package screens
 					
 					scoreDistance -= (playerSpeed - MIN_SPEED) * 0.1;
 					
+					scoreText.text = "SCORE: " + scoreDistance;
+					
 					initObstacle();
 					animateObstacles();
 					
 					createFoodItems()
 					animateItems()
+					animateEatPartile()
 					
 					trace("scoreDistance");
 					break
@@ -186,11 +204,41 @@ package screens
 			}
 		}
 		
+		private function animateEatPartile():void
+		{
+			for(var i:uint = 0; i < eatParticlesToAnimate.length; i++)
+			{
+				var eatParticleToTrack:Particle = eatParticlesToAnimate[i];
+				
+				if(eatParticleToTrack)
+				{
+					eatParticleToTrack.scaleX -= 0.03;
+					eatParticleToTrack.scaleY = eatParticleToTrack.scaleX;
+					
+					eatParticleToTrack.y -= eatParticleToTrack.speedY;
+					eatParticleToTrack.speedY -= eatParticleToTrack.speedY * 0.2;
+					
+					eatParticleToTrack.x += eatParticleToTrack.speedX;
+					eatParticleToTrack.speedX--;
+					
+					eatParticleToTrack.rotation += deg2rad(eatParticleToTrack.spin)
+					eatParticleToTrack.spin  *= 1.1;
+					
+					if(eatParticleToTrack.scaleY <= 0.02)
+					{
+						eatParticlesToAnimate.splice(i, 1);
+						this.removeChild(eatParticleToTrack)
+						eatParticleToTrack = null;
+					}
+				}
+			}
+		}
+		
 		private function animateItems():void
 		{
 			var itemToTrack:Item;
 			
-			for(var i:int; i < itemsToAnimate.length; i++)
+			for(var i:uint; i < itemsToAnimate.length; i++)
 			{
 				itemToTrack = itemsToAnimate[i];
 				
@@ -198,6 +246,8 @@ package screens
 				
 				if (itemToTrack.bounds.intersects(hero.bounds))
 				{
+					createEatParticles(itemToTrack);
+					
 					itemsToAnimate.splice(i, 1);
 					this.removeChild(itemToTrack);
 				}
@@ -207,6 +257,29 @@ package screens
 					itemsToAnimate.splice(i, 1);
 					this.removeChild(itemToTrack);
 				}
+			}
+		}
+		private function createEatParticles(itemToTrack:Item):void
+		{
+			var count:int = 5;
+			
+			while(count > 0)
+			{
+				count--;
+				
+				var eatParticle:Particle = new Particle();
+				this.addChild(eatParticle);
+				
+				eatParticle.x = itemToTrack.x + Math.random() * 40 - 20;
+				eatParticle.y = itemToTrack.y - Math.random() * 40;
+				
+				eatParticle.speedX = Math.random() * 2 + 1;
+				eatParticle.speedY = Math.random() * 5;
+				eatParticle.spin = Math.random() * 15;
+				
+				eatParticle.scaleX = eatParticle.scaleY = Math.random() * 0.3 + 0.3;
+				
+				eatParticlesToAnimate.push(eatParticle);
 			}
 		}
 		
